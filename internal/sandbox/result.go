@@ -14,6 +14,7 @@ type Result struct {
 }
 
 var ErrInvalidMainFile = errors.New("invalid main file")
+var ErrCompileFailed = errors.New("compile failed")
 
 func validateMainFile(name string) error {
 	if !filepath.IsLocal(name) {

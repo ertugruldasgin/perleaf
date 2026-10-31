@@ -2,21 +2,22 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/ertugruldasgin/latex-editor/internal/api"
 	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
 )
 
 var version = "dev"
 
 func main() {
-	fmt.Printf("latex-editor: %s\n", version)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	log.Printf("latex-editor %s", version)
 
 	d, err := sandbox.NewDocker(sandbox.DefaultImage)
 	if err != nil {
@@ -24,18 +25,33 @@ func main() {
 	}
 	defer d.Close()
 
-	res, err := d.Compile(ctx, "testdata", "hello.tex")
-	if err != nil {
-		log.Fatal(err)
+	addr := os.Getenv("ADDR")
+	if addr == "" {
+		addr = ":8080"
 	}
 
-	if err := os.MkdirAll("out", 0o755); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           api.NewRouter(d),
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	if err := os.WriteFile("out/hello.pdf", res.PDF, 0o644); err != nil {
-		log.Fatal(err)
-	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	fmt.Printf("ok: %d bytes -> out/hello.pdf\n", len(res.PDF))
+	go func() {
+		log.Printf("listening on %s", addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Print("shutting down")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("shutdown: %v", err)
+	}
 }

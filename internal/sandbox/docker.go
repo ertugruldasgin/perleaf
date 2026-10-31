@@ -88,7 +88,7 @@ func (d *Docker) Compile(ctx context.Context, srcDir, mainFile string) (*Result,
 	select {
 	case res := <-wait.Result:
 		if res.StatusCode != 0 {
-			runErr = fmt.Errorf("latexmk exited with code %d", res.StatusCode)
+			runErr = fmt.Errorf("%w: latexmk exited with code %d", ErrCompileFailed, res.StatusCode)
 			output = d.output(created.ID)
 		}
 	case err := <-wait.Error:
