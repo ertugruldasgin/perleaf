@@ -29,7 +29,8 @@ go.work.sum
 
 # Frontend
 web/node_modules/
-web/dist/
+web/dist/*
+!web/dist/.gitkeep
 npm-debug.log*
 
 # SQLite
