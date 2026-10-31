@@ -26,6 +26,8 @@ func main() {
 		QueueSize: 32,
 		Timeout:   30 * time.Second,
 		JobTTL:    10 * time.Minute,
+		CacheSize: 100,
+		CacheTTL:  30 * time.Minute,
 	})
 	if err != nil {
 		log.Fatal(err)

@@ -25,5 +25,7 @@ type Job struct {
 	Err    error
 
 	mainFile string
-	files    map[string]string
+	files    map[string]string // released after compile
+
+	cacheKey string
 }

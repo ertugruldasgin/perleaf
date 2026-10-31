@@ -48,7 +48,11 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 		internalError(w, err)
 	default:
 		w.Header().Set("Location", "/jobs/"+job.ID)
-		writeJSON(w, http.StatusAccepted, toJobResponse(job))
+		status := http.StatusAccepted
+		if job.Status == compile.StatusDone {
+			status = http.StatusOK
+		}
+		writeJSON(w, status, toJobResponse(job))
 	}
 }
 

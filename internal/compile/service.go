@@ -3,15 +3,20 @@ package compile
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 )
 
 const maxFiles = 200
@@ -31,6 +36,8 @@ type Options struct {
 	QueueSize int
 	Timeout   time.Duration
 	JobTTL    time.Duration
+	CacheSize int
+	CacheTTL  time.Duration
 }
 
 type Service struct {
@@ -44,6 +51,8 @@ type Service struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+
+	cache *expirable.LRU[string, *sandbox.Result]
 }
 
 func New(c Compiler, opts Options) *Service {
@@ -55,6 +64,7 @@ func New(c Compiler, opts Options) *Service {
 		jobs:     make(map[string]*Job),
 		ctx:      ctx,
 		cancel:   cancel,
+		cache:    expirable.NewLRU[string, *sandbox.Result](opts.CacheSize, nil, opts.CacheTTL),
 	}
 	for range opts.Workers {
 		s.wg.Go(s.worker)
@@ -77,12 +87,25 @@ func (s *Service) Submit(mainFile string, files map[string]string) (Job, error) 
 		return Job{}, err
 	}
 
+	key := cacheKey(mainFile, files)
+	if res, ok := s.cache.Get(key); ok {
+		now := time.Now()
+		return s.register(&Job{
+			ID:         rand.Text(),
+			Status:     StatusDone,
+			CreatedAt:  now,
+			FinishedAt: now,
+			Result:     res,
+		}), nil
+	}
+
 	job := &Job{
 		ID:        rand.Text(),
 		Status:    StatusQueued,
 		CreatedAt: time.Now(),
 		mainFile:  mainFile,
 		files:     files,
+		cacheKey:  key,
 	}
 
 	select {
@@ -90,11 +113,14 @@ func (s *Service) Submit(mainFile string, files map[string]string) (Job, error) 
 	default:
 		return Job{}, ErrQueueFull
 	}
+	return s.register(job), nil
+}
 
+func (s *Service) register(job *Job) Job {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.jobs[job.ID] = job
-	return *job, nil
+	return *job
 }
 
 func (s *Service) Get(id string) (Job, bool) {
@@ -122,6 +148,9 @@ func (s *Service) run(job *Job) {
 	s.update(job, func(j *Job) { j.Status = StatusRunning })
 
 	res, err := s.compile(job)
+	if err == nil {
+		s.cache.Add(job.cacheKey, res)
+	}
 	if err != nil && !errors.Is(err, sandbox.ErrCompileFailed) && !errors.Is(err, context.DeadlineExceeded) {
 		log.Printf("job %s: %v", job.ID, err)
 	}
@@ -211,4 +240,16 @@ func writeFiles(dir string, files map[string]string) error {
 		}
 	}
 	return nil
+}
+
+// cacheKey hashes the main file and every file sorted by name, so the same
+// project content always maps to the same key.
+func cacheKey(mainFile string, files map[string]string) string {
+	h := sha256.New()
+	fmt.Fprintf(h, "%d:%s", len(mainFile), mainFile)
+	for _, name := range slices.Sorted(maps.Keys(files)) {
+		content := files[name]
+		fmt.Fprintf(h, "%d:%s%d:%s", len(name), name, len(content), content)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
