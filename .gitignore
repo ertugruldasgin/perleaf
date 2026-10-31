@@ -48,6 +48,9 @@ npm-debug.log*
 *.synctex.gz
 *.log
 
+# Local compile output
+/out/
+
 # Editor/IDE
 .idea/
 .vscode/
