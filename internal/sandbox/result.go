@@ -17,7 +17,7 @@ type Result struct {
 var ErrInvalidMainFile = errors.New("invalid main file")
 var ErrCompileFailed = errors.New("compile failed")
 
-func validateMainFile(name string) error {
+func ValidateMainFile(name string) error {
 	if !filepath.IsLocal(name) {
 		return fmt.Errorf("%w: %q must be a relative path inside the project", ErrInvalidMainFile, name)
 	}

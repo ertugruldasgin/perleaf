@@ -1,26 +1,23 @@
 package api
 
 import (
-	"context"
 	"net/http"
 
-	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
+	"github.com/ertugruldasgin/latex-editor/internal/compile"
 )
 
-type Compiler interface {
-	Compile(ctx context.Context, srcDir, mainFile string) (*sandbox.Result, error)
-}
-
 type Handler struct {
-	compiler Compiler
+	jobs *compile.Service
 }
 
-func NewRouter(c Compiler) http.Handler {
-	h := &Handler{compiler: c}
+func NewRouter(jobs *compile.Service) http.Handler {
+	h := &Handler{jobs: jobs}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", h.healthz)
-	mux.HandleFunc("POST /compile", h.compile)
+	mux.HandleFunc("POST /compile", h.submit)
+	mux.HandleFunc("GET /jobs/{id}", h.getJob)
+	mux.HandleFunc("GET /jobs/{id}/pdf", h.getPDF)
 	return mux
 }
 

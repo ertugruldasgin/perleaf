@@ -32,7 +32,7 @@ func (d *Docker) Close() error {
 }
 
 func (d *Docker) Compile(ctx context.Context, srcDir, mainFile string) (*Result, error) {
-	if err := validateMainFile(mainFile); err != nil {
+	if err := ValidateMainFile(mainFile); err != nil {
 		return nil, err
 	}
 

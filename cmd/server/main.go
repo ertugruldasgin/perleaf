@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ertugruldasgin/latex-editor/internal/api"
+	"github.com/ertugruldasgin/latex-editor/internal/compile"
 	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
 )
 
@@ -20,6 +21,12 @@ func main() {
 	log.Printf("latex-editor %s", version)
 
 	d, err := sandbox.NewDocker(sandbox.DefaultImage)
+	jobs := compile.New(d, compile.Options{
+		Workers:   2,
+		QueueSize: 32,
+		Timeout:   30 * time.Second,
+		JobTTL:    10 * time.Minute,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -32,7 +39,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           api.NewRouter(d),
+		Handler:           api.NewRouter(jobs),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -49,9 +56,10 @@ func main() {
 	<-ctx.Done()
 	log.Print("shutting down")
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
+	jobs.Stop()
 }

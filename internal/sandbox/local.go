@@ -9,7 +9,7 @@ import (
 
 // CompileLocal runs latexmk on the local.
 func CompileLocal(ctx context.Context, srcDir, mainFile string) (*Result, error) {
-	if err := validateMainFile(mainFile); err != nil {
+	if err := ValidateMainFile(mainFile); err != nil {
 		return nil, err
 	}
 

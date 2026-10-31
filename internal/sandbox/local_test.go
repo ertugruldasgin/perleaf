@@ -20,7 +20,7 @@ func TestValidateMainFile(t *testing.T) {
 		{"main.txt", false},
 	}
 	for _, tt := range tests {
-		err := validateMainFile(tt.name)
+		err := ValidateMainFile(tt.name)
 		if tt.ok && err != nil {
 			t.Errorf("%q: unexpected error: %v", tt.name, err)
 		}
