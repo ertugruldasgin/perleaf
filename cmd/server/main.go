@@ -18,7 +18,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	res, err := sandbox.CompileLocal(ctx, "testdata", "hello.tex")
+	d, err := sandbox.NewDocker(sandbox.DefaultImage)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer d.Close()
+
+	res, err := d.Compile(ctx, "testdata", "hello.tex")
 	if err != nil {
 		log.Fatal(err)
 	}
