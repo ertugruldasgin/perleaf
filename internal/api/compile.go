@@ -28,8 +28,9 @@ type compileRequest struct {
 }
 
 type errorResponse struct {
-	Error string `json:"error"`
-	Log   string `json:"log,omitempty"`
+	Error  string             `json:"error"`
+	Errors []sandbox.LogError `json:"errors,omitempty"`
+	Log    string             `json:"log,omitempty"`
 }
 
 func (h *Handler) compile(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +77,11 @@ func (h *Handler) compile(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, sandbox.ErrInvalidMainFile):
 		writeError(w, http.StatusBadRequest, err.Error(), nil)
 	case errors.Is(err, sandbox.ErrCompileFailed):
-		writeError(w, http.StatusUnprocessableEntity, "compile failed", res.Log)
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{
+			Error:  "compile failed",
+			Errors: res.Errors,
+			Log:    string(res.Log),
+		})
 	case errors.Is(err, context.DeadlineExceeded):
 		writeError(w, http.StatusUnprocessableEntity, "compile timed out", nil)
 	case errors.Is(err, context.Canceled):
@@ -105,9 +110,13 @@ func writeFiles(dir string, files map[string]string) error {
 }
 
 func writeError(w http.ResponseWriter, status int, msg string, logData []byte) {
+	writeJSON(w, status, errorResponse{Error: msg, Log: string(logData)})
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(errorResponse{Error: msg, Log: string(logData)})
+	json.NewEncoder(w).Encode(v)
 }
 
 func internalError(w http.ResponseWriter, err error) {

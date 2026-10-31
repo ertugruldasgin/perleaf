@@ -54,7 +54,7 @@ func (d *Docker) Compile(ctx context.Context, srcDir, mainFile string) (*Result,
 			Cmd:        latexmkArgs("/out", mainFile),
 			WorkingDir: "/src",
 			User:       fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()),
-			Env:        []string{"HOME=/tmp", "TEXMFVAR=/tmp/texmf-var"},
+			Env:        []string{"HOME=/tmp", "TEXMFVAR=/tmp/texmf-var", "max_print_line=10000"},
 			Tty:        true,
 		},
 		HostConfig: &container.HostConfig{

@@ -9,8 +9,9 @@ import (
 )
 
 type Result struct {
-	PDF []byte
-	Log []byte
+	PDF    []byte
+	Log    []byte
+	Errors []LogError
 }
 
 var ErrInvalidMainFile = errors.New("invalid main file")
@@ -35,6 +36,7 @@ func latexmkArgs(outDir, mainFile string) []string {
 		"-pdf",
 		"-interaction=nonstopmode",
 		"-halt-on-error",
+		"-file-line-error",
 		"-no-shell-escape",
 		"-outdir=" + outDir,
 		mainFile,
@@ -45,7 +47,7 @@ func collect(outDir, mainFile string, runErr error, output []byte) (*Result, err
 	base := strings.TrimSuffix(filepath.Base(mainFile), filepath.Ext(mainFile))
 	logData, _ := os.ReadFile(filepath.Join(outDir, base+".log"))
 	if runErr != nil {
-		return &Result{Log: logData}, fmt.Errorf("%w\n%s", runErr, output)
+		return &Result{Log: logData, Errors: parseLog(logData)}, fmt.Errorf("%w\n%s", runErr, output)
 	}
 
 	pdf, err := os.ReadFile(filepath.Join(outDir, base+".pdf"))
