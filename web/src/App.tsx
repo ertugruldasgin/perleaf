@@ -4,6 +4,7 @@ import { getMe, type User } from "./api";
 import { Login } from "./pages/Login";
 import { Home } from "./pages/Home";
 import { ProjectPage } from "./pages/ProjectPage";
+import { InvitePage } from "./pages/InvitePage";
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/" element={<Home user={user} />} />
       <Route path="/p/:id" element={<ProjectPage user={user} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/invite/:token" element={<InvitePage />} />
     </Routes>
   );
 }

@@ -14,6 +14,8 @@ export type User = {
   avatarUrl: string;
 };
 
+export type Member = User & { role: "owner" | "editor" };
+
 export type Project = {
   id: string;
   name: string;
@@ -42,6 +44,42 @@ export async function getMe(): Promise<User | null> {
 
 export async function logout(): Promise<void> {
   await fetch("/auth/logout", { method: "POST" });
+}
+
+export async function listMembers(project: string): Promise<Member[]> {
+  const res = await fetch(`/api/projects/${project}/members`);
+  const body = await readJSON(res);
+  if (!res.ok) throw new Error(body.error ?? res.statusText);
+  return body;
+}
+
+export async function removeMember(
+  project: string,
+  userId: number,
+): Promise<void> {
+  const res = await fetch(`/api/projects/${project}/members/${userId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const body = await readJSON(res);
+    throw new Error(body.error ?? res.statusText);
+  }
+}
+
+export async function createInvite(project: string): Promise<string> {
+  const res = await fetch(`/api/projects/${project}/invites`, {
+    method: "POST",
+  });
+  const body = await readJSON(res);
+  if (!res.ok) throw new Error(body.error ?? res.statusText);
+  return body.token;
+}
+
+export async function acceptInvite(token: string): Promise<string> {
+  const res = await fetch(`/api/invites/${token}/accept`, { method: "POST" });
+  const body = await readJSON(res);
+  if (!res.ok) throw new Error(body.error ?? res.statusText);
+  return body.projectId;
 }
 
 export async function listProjects(): Promise<Project[]> {

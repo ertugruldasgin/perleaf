@@ -38,6 +38,12 @@ CREATE TABLE IF NOT EXISTS project_members (
 	role       TEXT NOT NULL CHECK (role IN ('owner', 'editor')),
 	PRIMARY KEY (project_id, user_id)
 );
+CREATE TABLE IF NOT EXISTS invites (
+	token_hash TEXT PRIMARY KEY,
+	project_id TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+	created_by INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+	expires_at INTEGER NOT NULL
+);
 `
 
 type Store struct {

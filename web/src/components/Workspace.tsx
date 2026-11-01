@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { Users } from "lucide-react";
 import { Editor } from "./Editor";
 import { Preview } from "./Preview";
 import { FileList } from "./FileList";
 import { AssetView } from "./AssetView";
 import { UserMenu } from "./UserMenu";
+import { SharePanel } from "./SharePanel";
 import {
   submit,
   waitForJob,
@@ -30,6 +32,7 @@ export function Workspace({ project, user }: Props) {
   const [errors, setErrors] = useState<LogError[]>([]);
   const [busy, setBusy] = useState(false);
   const [follow, setFollow] = useState(true);
+  const [sharing, setSharing] = useState(false);
   const lastPdfAt = useRef(0);
 
   const current =
@@ -146,6 +149,13 @@ export function Workspace({ project, user }: Props) {
           />
           Follow others' compiles
         </label>
+        <button
+          onClick={() => setSharing(true)}
+          className="flex items-center gap-1.5 rounded px-2 py-1 text-neutral-600 hover:bg-neutral-100"
+        >
+          <Users size={16} />
+          Share
+        </button>
         <UserMenu user={user} />
       </header>
 
@@ -188,6 +198,14 @@ export function Workspace({ project, user }: Props) {
             </li>
           ))}
         </ul>
+      )}
+
+      {sharing && (
+        <SharePanel
+          project={project}
+          user={user}
+          onClose={() => setSharing(false)}
+        />
       )}
     </div>
   );

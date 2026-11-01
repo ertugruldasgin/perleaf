@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 const (
 	sessionCookie = "session"
 	stateCookie   = "oauth_state"
+	nextCookie    = "oauth_next"
 	sessionTTL    = 30 * 24 * time.Hour
 )
 
@@ -53,10 +55,13 @@ func New(st *store.Store, cfg Config) *Auth {
 
 func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	state := rand.Text()
-	http.SetCookie(w, &http.Cookie{
-		Name: stateCookie, Value: state, Path: "/auth", MaxAge: 600,
-		HttpOnly: true, Secure: a.secure, SameSite: http.SameSiteLaxMode,
-	})
+	next := safeNext(r.URL.Query().Get("next"))
+	for name, value := range map[string]string{stateCookie: state, nextCookie: url.QueryEscape(next)} {
+		http.SetCookie(w, &http.Cookie{
+			Name: name, Value: value, Path: "/auth", MaxAge: 600,
+			HttpOnly: true, Secure: a.secure, SameSite: http.SameSiteLaxMode,
+		})
+	}
 	http.Redirect(w, r, a.oauth.AuthCodeURL(state), http.StatusFound)
 }
 
@@ -93,7 +98,7 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := rand.Text()
-	if err := a.store.CreateSession(r.Context(), hashToken(token), user.ID, time.Now().Add(sessionTTL)); err != nil {
+	if err := a.store.CreateSession(r.Context(), HashToken(token), user.ID, time.Now().Add(sessionTTL)); err != nil {
 		log.Printf("auth: create session: %v", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -102,12 +107,20 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 		Name: sessionCookie, Value: token, Path: "/", MaxAge: int(sessionTTL.Seconds()),
 		HttpOnly: true, Secure: a.secure, SameSite: http.SameSiteLaxMode,
 	})
-	http.Redirect(w, r, "/", http.StatusFound)
+
+	next := "/"
+	if c, err := r.Cookie(nextCookie); err == nil {
+		if v, err := url.QueryUnescape(c.Value); err == nil {
+			next = safeNext(v)
+		}
+	}
+	http.SetCookie(w, &http.Cookie{Name: nextCookie, Path: "/auth", MaxAge: -1})
+	http.Redirect(w, r, next, http.StatusFound)
 }
 
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(sessionCookie); err == nil {
-		if err := a.store.DeleteSession(r.Context(), hashToken(c.Value)); err != nil {
+		if err := a.store.DeleteSession(r.Context(), HashToken(c.Value)); err != nil {
 			log.Printf("auth: delete session: %v", err)
 		}
 	}
@@ -130,7 +143,7 @@ func (a *Auth) Require(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "not logged in")
 			return
 		}
-		user, err := a.store.SessionUser(r.Context(), hashToken(c.Value))
+		user, err := a.store.SessionUser(r.Context(), HashToken(c.Value))
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusUnauthorized, "session expired")
 			return
@@ -147,6 +160,20 @@ func (a *Auth) Require(next http.Handler) http.Handler {
 func UserFrom(ctx context.Context) (store.User, bool) {
 	u, ok := ctx.Value(ctxKey{}).(store.User)
 	return u, ok
+}
+
+func HashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+func safeNext(next string) string {
+	u, err := url.Parse(next)
+	if err != nil || u.IsAbs() || u.Host != "" ||
+		!strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.Contains(next, `\`) {
+		return "/"
+	}
+	return next
 }
 
 type githubUser struct {
@@ -177,11 +204,6 @@ func fetchGitHubUser(ctx context.Context, client *http.Client) (githubUser, erro
 		return githubUser{}, err
 	}
 	return u, nil
-}
-
-func hashToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

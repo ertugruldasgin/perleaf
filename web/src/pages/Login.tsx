@@ -5,7 +5,7 @@ export function Login() {
         <h1 className="text-lg font-semibold">latex-editor</h1>
         <p className="text-sm text-neutral-500">Collaborative LaTeX editing</p>
         <a
-          href="/auth/login"
+          href={`/auth/login?next=${encodeURIComponent(location.pathname + location.search)}`}
           className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
         >
           Sign in with GitHub

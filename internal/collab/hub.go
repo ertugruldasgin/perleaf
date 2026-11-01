@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/ertugruldasgin/latex-editor/internal/auth"
 	"github.com/ertugruldasgin/latex-editor/internal/store"
 )
 
@@ -28,6 +29,7 @@ type client struct {
 	conn       *websocket.Conn
 	send       chan []byte
 	loadedUpTo int64
+	userID     int64
 }
 
 func NewHub(st *store.Store) *Hub {
@@ -44,7 +46,8 @@ func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
 	defer conn.CloseNow()
 	conn.SetReadLimit(readLimit)
 
-	c := &client{conn: conn, send: make(chan []byte, sendBuffer)}
+	user, _ := auth.UserFrom(r.Context())
+	c := &client{conn: conn, send: make(chan []byte, sendBuffer), userID: user.ID}
 	h.join(room, c)
 	defer h.leave(room, c)
 
@@ -131,6 +134,21 @@ func (h *Hub) leave(room string, c *client) {
 	delete(h.rooms[room], c)
 	if len(h.rooms[room]) == 0 {
 		delete(h.rooms, room)
+	}
+}
+
+func (h *Hub) Kick(room string, userID int64) {
+	h.mu.Lock()
+	var conns []*websocket.Conn
+	for c := range h.rooms[room] {
+		if c.userID == userID {
+			conns = append(conns, c.conn)
+		}
+	}
+	h.mu.Unlock()
+
+	for _, conn := range conns {
+		go conn.Close(websocket.StatusPolicyViolation, "removed from project")
 	}
 }
 

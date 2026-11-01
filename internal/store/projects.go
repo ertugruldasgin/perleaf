@@ -20,6 +20,11 @@ type Project struct {
 	CreatedAt int64  `json:"createdAt"`
 }
 
+type Member struct {
+	User
+	Role string `json:"role"`
+}
+
 func (s *Store) CreateProject(ctx context.Context, name string, ownerID int64) (Project, error) {
 	p := Project{ID: rand.Text(), Name: name, Role: RoleOwner, CreatedAt: time.Now().Unix()}
 
@@ -75,4 +80,65 @@ func (s *Store) ProjectForMember(ctx context.Context, projectID string, userID i
 		return Project{}, ErrNotFound
 	}
 	return p, err
+}
+
+func (s *Store) ListMembers(ctx context.Context, projectID string) ([]Member, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT u.id, u.github_id, u.login, u.name, u.avatar_url, m.role
+		FROM project_members m JOIN users u ON u.id = m.user_id
+		WHERE m.project_id = ?
+		ORDER BY m.role DESC, u.login`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	members := []Member{}
+	for rows.Next() {
+		var m Member
+		if err := rows.Scan(&m.ID, &m.GitHubID, &m.Login, &m.Name, &m.AvatarURL, &m.Role); err != nil {
+			return nil, err
+		}
+		members = append(members, m)
+	}
+	return members, rows.Err()
+}
+
+func (s *Store) RemoveMember(ctx context.Context, projectID string, userID int64) error {
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM project_members WHERE project_id = ? AND user_id = ? AND role != ?`,
+		projectID, userID, RoleOwner)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) CreateInvite(ctx context.Context, tokenHash, projectID string, createdBy int64, expires time.Time) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO invites (token_hash, project_id, created_by, expires_at) VALUES (?, ?, ?, ?)`,
+		tokenHash, projectID, createdBy, expires.Unix())
+	return err
+}
+
+func (s *Store) AcceptInvite(ctx context.Context, tokenHash string, userID int64) (string, error) {
+	var projectID string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT project_id FROM invites WHERE token_hash = ? AND expires_at > ?`,
+		tokenHash, time.Now().Unix(),
+	).Scan(&projectID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		`INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`,
+		projectID, userID, RoleEditor)
+	return projectID, err
 }
