@@ -4,11 +4,7 @@ import { Editor } from "./components/Editor";
 import { Preview } from "./components/Preview";
 import { submit, waitForJob, getPDF, type LogError } from "./api";
 
-const initialDoc = String.raw`\documentclass{article}
-\begin{document}
-Hello from latex-editor! $e^{i\pi} + 1 = 0$
-\end{document}
-`;
+const room = new URLSearchParams(location.search).get("project") ?? "default";
 
 export default function App() {
   const viewRef = useRef<EditorView | null>(null);
@@ -76,7 +72,7 @@ export default function App() {
       </header>
       <main className="grid min-h-0 flex-1 grid-cols-2">
         <div className=" min-h-0 border-r border-neutral-200">
-          <Editor initialDoc={initialDoc} viewRef={viewRef} />
+          <Editor room={room} viewRef={viewRef} />
         </div>
         <div className="min-h-0">
           <Preview pdf={pdf} />

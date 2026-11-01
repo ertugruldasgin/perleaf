@@ -1,7 +1,11 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { EditorView, basicSetup } from "codemirror";
+import { keymap } from "@codemirror/view";
 import { StreamLanguage } from "@codemirror/language";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
+import { yCollab, yUndoManagerKeymap } from "y-codemirror.next";
 
 const editorTheme = EditorView.theme({
   "&": { height: "100%", fontSize: "0.875rem" },
@@ -23,32 +27,61 @@ const editorTheme = EditorView.theme({
   ".cm-activeLineGutter": { backgroundColor: "#f5f5f5", color: "#404040" },
 });
 
+const cursorColors = [
+  "#30bced",
+  "#6eeb83",
+  "#ffbc42",
+  "#ee6352",
+  "#9b5de5",
+  "#f15bb5",
+  "#00bbf9",
+  "#00a676",
+];
+
 type Props = {
-  initialDoc: string;
+  room: string;
   viewRef: RefObject<EditorView | null>;
 };
 
-export function Editor({ initialDoc, viewRef }: Props) {
+export function Editor({ room, viewRef }: Props) {
   const parentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const ydoc = new Y.Doc();
+    const ytext = ydoc.getText("main.tex");
+    const protocol = location.protocol === "https:" ? "wss" : "ws";
+    const provider = new WebsocketProvider(
+      `${protocol}://${location.host}/ws`,
+      room,
+      ydoc,
+    );
+    const color = cursorColors[Math.floor(Math.random() * cursorColors.length)];
+    provider.awareness.setLocalStateField("user", {
+      name: `Anonymous ${Math.floor(Math.random() * 100)}`,
+      color,
+      colorLight: color + "33",
+    });
     const view = new EditorView({
       parent: parentRef.current!,
-      doc: initialDoc,
+      doc: ytext.toString(),
       extensions: [
+        keymap.of(yUndoManagerKeymap),
         basicSetup,
         StreamLanguage.define(stex),
         EditorView.lineWrapping,
         editorTheme,
+        yCollab(ytext, provider.awareness),
       ],
     });
     viewRef.current = view;
 
     return () => {
       view.destroy();
+      provider.destroy();
+      ydoc.destroy();
       viewRef.current = null;
     };
-  }, []);
+  }, [room]);
 
   return <div ref={parentRef} className="h-full" />;
 }
