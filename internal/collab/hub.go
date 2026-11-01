@@ -25,12 +25,13 @@ type Hub struct {
 }
 
 type client struct {
-	conn *websocket.Conn
-	send chan []byte
+	conn       *websocket.Conn
+	send       chan []byte
+	loadedUpTo int64
 }
 
-func NewHub(store *store.Store) *Hub {
-	return &Hub{store: store, rooms: make(map[string]map[*client]struct{})}
+func NewHub(st *store.Store) *Hub {
+	return &Hub{store: st, rooms: make(map[string]map[*client]struct{})}
 }
 
 func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
@@ -65,10 +66,59 @@ func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Hub) sendStoredState(ctx context.Context, room string, c *client) error {
+	updates, lastID, err := h.store.Load(ctx, room)
+	if err != nil {
+		return err
+	}
+	c.loadedUpTo = lastID
+
+	for _, u := range updates {
+		if err := c.conn.Write(ctx, websocket.MessageBinary, syncMessage(syncUpdate, u)); err != nil {
+			return err
+		}
+	}
+	return c.conn.Write(ctx, websocket.MessageBinary, syncMessage(syncStep2, emptyUpdate))
+}
+
+func (h *Hub) handle(ctx context.Context, room string, from *client, msg []byte) {
+	msgType, rest, ok := readVarUint(msg)
+	if !ok {
+		return
+	}
+	switch msgType {
+	case msgAwareness:
+		h.broadcast(room, from, msg)
+
+	case msgSync:
+		syncType, rest, ok := readVarUint(rest)
+		if !ok || syncType != syncUpdate {
+			return
+		}
+		update, ok := readVarBytes(rest)
+		if !ok {
+			return
+		}
+		if err := h.store.Append(ctx, room, update); err != nil {
+			log.Printf("collab: store update for %q: %v", room, err)
+		}
+		h.broadcast(room, from, msg)
+
+	case msgSnapshot:
+		snapshot, ok := readVarBytes(rest)
+		if !ok {
+			return
+		}
+		if err := h.store.Compact(ctx, room, from.loadedUpTo, snapshot); err != nil {
+			log.Printf("collab: compact %q: %v", room, err)
+		}
+		h.broadcast(room, from, syncMessage(syncUpdate, snapshot))
+	}
+}
+
 func (h *Hub) join(room string, c *client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-
 	if h.rooms[room] == nil {
 		h.rooms[room] = make(map[*client]struct{})
 	}
@@ -82,7 +132,6 @@ func (h *Hub) leave(room string, c *client) {
 	if len(h.rooms[room]) == 0 {
 		delete(h.rooms, room)
 	}
-
 }
 
 func (h *Hub) broadcast(room string, from *client, msg []byte) {
@@ -114,43 +163,5 @@ func (c *client) writeLoop(ctx context.Context) {
 				return
 			}
 		}
-	}
-}
-
-func (h *Hub) sendStoredState(ctx context.Context, room string, c *client) error {
-	updates, err := h.store.Load(ctx, room)
-	if err != nil {
-		return err
-	}
-	for _, u := range updates {
-		if err := c.conn.Write(ctx, websocket.MessageBinary, syncMessage(syncUpdate, u)); err != nil {
-			return err
-		}
-	}
-	return c.conn.Write(ctx, websocket.MessageBinary, syncMessage(syncStep2, emptyUpdate))
-}
-
-func (h *Hub) handle(ctx context.Context, room string, from *client, msg []byte) {
-	msgType, rest, ok := readVarUint(msg)
-	if !ok {
-		return
-	}
-	switch msgType {
-	case msgAwareness:
-		h.broadcast(room, from, msg)
-
-	case msgSync:
-		syncType, rest, ok := readVarUint(rest)
-		if !ok || syncType != syncUpdate {
-			return
-		}
-		update, ok := readVarBytes(rest)
-		if !ok {
-			return
-		}
-		if err := h.store.Append(ctx, room, update); err != nil {
-			log.Printf("collab: store update for %q: %v", room, err)
-		}
-		h.broadcast(room, from, msg)
 	}
 }

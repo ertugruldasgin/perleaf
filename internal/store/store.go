@@ -42,20 +42,37 @@ func (s *Store) Append(ctx context.Context, project string, update []byte) error
 	return err
 }
 
-func (s *Store) Load(ctx context.Context, project string) ([][]byte, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM doc_updates WHERE project = ? ORDER BY id`, project)
+func (s *Store) Load(ctx context.Context, project string) ([][]byte, int64, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, data FROM doc_updates WHERE project = ? ORDER BY id`, project)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var updates [][]byte
+	var lastID int64
 	for rows.Next() {
 		var data []byte
-		if err := rows.Scan(&data); err != nil {
-			return nil, err
+		if err := rows.Scan(&lastID, &data); err != nil {
+			return nil, 0, err
 		}
 		updates = append(updates, data)
 	}
-	return updates, rows.Err()
+	return updates, lastID, rows.Err()
+}
+
+func (s *Store) Compact(ctx context.Context, project string, upTo int64, snapshot []byte) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM doc_updates WHERE project = ? AND id <= ?`, project, upTo); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO doc_updates (project, data) VALUES (?, ?)`, project, snapshot); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

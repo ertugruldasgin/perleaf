@@ -4,8 +4,17 @@ import { keymap } from "@codemirror/view";
 import { StreamLanguage } from "@codemirror/language";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
 import * as Y from "yjs";
+import * as encoding from "lib0/encoding";
 import { WebsocketProvider } from "y-websocket";
 import { yCollab, yUndoManagerKeymap } from "y-codemirror.next";
+
+const SNAPSHOT_MESSAGE = 100; // must match msgSnapshot in internal/collab/protocol.go
+
+const template = String.raw`\documentclass{article}
+\begin{document}
+Hello from latex-editor!
+\end{document}
+`;
 
 const editorTheme = EditorView.theme({
   "&": { height: "100%", fontSize: "0.875rem" },
@@ -38,6 +47,13 @@ const cursorColors = [
   "#00a676",
 ];
 
+function sendSnapshot(provider: WebsocketProvider, ydoc: Y.Doc) {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, SNAPSHOT_MESSAGE);
+  encoding.writeVarUint8Array(encoder, Y.encodeStateAsUpdate(ydoc));
+  provider.ws?.send(encoding.toUint8Array(encoder));
+}
+
 type Props = {
   room: string;
   viewRef: RefObject<EditorView | null>;
@@ -58,12 +74,20 @@ export function Editor({ room, viewRef }: Props) {
         disableBc: true,
       },
     );
+
     const color = cursorColors[Math.floor(Math.random() * cursorColors.length)];
     provider.awareness.setLocalStateField("user", {
       name: `Anonymous ${Math.floor(Math.random() * 100)}`,
       color,
       colorLight: color + "33",
     });
+
+    provider.on("sync", (synced: boolean) => {
+      if (!synced) return;
+      if (ytext.length === 0) ytext.insert(0, template);
+      sendSnapshot(provider, ydoc);
+    });
+
     const view = new EditorView({
       parent: parentRef.current!,
       doc: ytext.toString(),

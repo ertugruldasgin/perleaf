@@ -10,6 +10,8 @@ const (
 	syncStep1  = 0
 	syncStep2  = 1
 	syncUpdate = 2
+
+	msgSnapshot = 100
 )
 
 var emptyUpdate = []byte{0, 0}
