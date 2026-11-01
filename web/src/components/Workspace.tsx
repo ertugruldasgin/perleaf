@@ -15,7 +15,14 @@ import {
   type Project,
   type User,
 } from "../api";
-import { useCollab, useKeys, MAIN_FILE } from "../collab";
+import { Presence } from "./Presence";
+import {
+  useCollab,
+  useKeys,
+  usePeers,
+  useConnection,
+  MAIN_FILE,
+} from "../collab";
 
 type Props = {
   project: Project;
@@ -26,6 +33,8 @@ export function Workspace({ project, user }: Props) {
   const collab = useCollab(project.id, user);
   const fileNames = useKeys(collab?.files);
   const assetNames = useKeys(collab?.assets);
+  const peers = usePeers(collab?.provider);
+  const connection = useConnection(collab?.provider);
   const [active, setActive] = useState(MAIN_FILE);
   const [pdf, setPdf] = useState<ArrayBuffer | null>(null);
   const [status, setStatus] = useState("");
@@ -149,6 +158,7 @@ export function Workspace({ project, user }: Props) {
           />
           Follow others' compiles
         </label>
+        <Presence peers={peers} status={connection} />
         <button
           onClick={() => setSharing(true)}
           className="flex items-center gap-1.5 rounded px-2 py-1 text-neutral-600 hover:bg-neutral-100"

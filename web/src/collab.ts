@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import * as Y from "yjs";
 import * as encoding from "lib0/encoding";
 import { WebsocketProvider } from "y-websocket";
@@ -93,4 +93,66 @@ function sendSnapshot(provider: WebsocketProvider, ydoc: Y.Doc) {
   encoding.writeVarUint(encoder, SNAPSHOT_MESSAGE);
   encoding.writeVarUint8Array(encoder, Y.encodeStateAsUpdate(ydoc));
   provider.ws?.send(encoding.toUint8Array(encoder));
+}
+
+export type Peer = {
+  login: string;
+  name: string;
+  avatarUrl: string;
+  color: string;
+};
+export type ConnectionStatus = "connected" | "connecting" | "disconnected";
+
+export function usePeers(provider: WebsocketProvider | undefined): Peer[] {
+  const [peers, setPeers] = useState<Peer[]>([]);
+
+  useEffect(() => {
+    if (!provider) return;
+    const awareness = provider.awareness;
+
+    const update = () => {
+      const me = awareness.getLocalState()?.user?.login;
+      const byLogin = new Map<string, Peer>();
+      for (const state of awareness.getStates().values()) {
+        const u = state.user;
+        if (!u?.login || u.login === me) continue;
+        byLogin.set(u.login, {
+          login: u.login,
+          name: u.name,
+          avatarUrl: u.avatarUrl,
+          color: u.color,
+        });
+      }
+      const next = [...byLogin.values()].sort((a, b) =>
+        a.login.localeCompare(b.login),
+      );
+      setPeers((prev) =>
+        JSON.stringify(prev) === JSON.stringify(next) ? prev : next,
+      );
+    };
+
+    update();
+    awareness.on("change", update);
+    return () => awareness.off("change", update);
+  }, [provider]);
+
+  return peers;
+}
+
+export function useConnection(
+  provider: WebsocketProvider | undefined,
+): ConnectionStatus {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      provider?.on("status", onChange);
+      return () => provider?.off("status", onChange);
+    },
+    [provider],
+  );
+
+  return useSyncExternalStore(subscribe, () => {
+    if (!provider) return "connecting";
+    if (provider.wsconnected) return "connected";
+    return provider.wsconnecting ? "connecting" : "disconnected";
+  });
 }
