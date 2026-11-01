@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ertugruldasgin/latex-editor/internal/api"
+	"github.com/ertugruldasgin/latex-editor/internal/collab"
 	"github.com/ertugruldasgin/latex-editor/internal/compile"
 	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
 )
@@ -29,6 +30,7 @@ func main() {
 		CacheSize: 100,
 		CacheTTL:  30 * time.Minute,
 	})
+	hub := collab.NewHub()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,7 +43,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           api.NewRouter(jobs),
+		Handler:           api.NewRouter(jobs, hub),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

@@ -9,6 +9,7 @@ export default defineConfig({
     proxy: {
       "/compile": "http://localhost:8080",
       "/jobs": "http://localhost:8080",
+      "/ws": { target: "ws://localhost:8080", ws: true },
     },
   },
 });
