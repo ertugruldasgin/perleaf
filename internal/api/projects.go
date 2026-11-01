@@ -14,7 +14,6 @@ import (
 
 type projectKey struct{}
 
-// requireMember lets the request through only if the logged-in user is a member of {project}.
 func (h *Handler) requireMember(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, _ := auth.UserFrom(r.Context())

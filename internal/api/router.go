@@ -50,7 +50,7 @@ func NewRouter(d Deps) http.Handler {
 	mux.Handle("GET /api/projects/{project}/blobs/{hash}", member(h.getBlob))
 	mux.Handle("GET /ws/{project}", member(d.Hub.ServeWS))
 
-	mux.Handle("GET /", http.FileServerFS(d.UI))
+	mux.Handle("GET /", spa(d.UI))
 	return mux
 }
 

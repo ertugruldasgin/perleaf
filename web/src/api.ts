@@ -7,6 +7,20 @@ export type Job = {
   errors?: LogError[];
 };
 
+export type User = {
+  id: number;
+  login: string;
+  name: string;
+  avatarUrl: string;
+};
+
+export type Project = {
+  id: string;
+  name: string;
+  role: "owner" | "editor";
+  createdAt: number;
+};
+
 async function readJSON(res: Response) {
   const text = await res.text();
   try {
@@ -16,6 +30,43 @@ async function readJSON(res: Response) {
       `${res.status} ${res.statusText}${text ? `: ${text}` : ""}`,
     );
   }
+}
+
+export async function getMe(): Promise<User | null> {
+  const res = await fetch("/api/me");
+  if (res.status === 401) return null;
+  const body = await readJSON(res);
+  if (!res.ok) throw new Error(body.error ?? res.statusText);
+  return body;
+}
+
+export async function logout(): Promise<void> {
+  await fetch("/auth/logout", { method: "POST" });
+}
+
+export async function listProjects(): Promise<Project[]> {
+  const res = await fetch("/api/projects");
+  const body = await readJSON(res);
+  if (!res.ok) throw new Error(body.error ?? res.statusText);
+  return body;
+}
+
+export async function createProject(name: string): Promise<Project> {
+  const res = await fetch("/api/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  const body = await readJSON(res);
+  if (!res.ok) throw new Error(body.error ?? res.statusText);
+  return body;
+}
+
+export async function getProject(id: string): Promise<Project> {
+  const res = await fetch(`/api/projects/${id}`);
+  const body = await readJSON(res);
+  if (!res.ok) throw new Error(body.error ?? res.statusText);
+  return body;
 }
 
 export async function submit(
