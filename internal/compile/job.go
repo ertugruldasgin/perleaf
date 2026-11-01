@@ -26,6 +26,7 @@ type Job struct {
 
 	mainFile string
 	files    map[string]string // released after compile
+	assets   map[string]string // path -> blob hash
 
 	cacheKey string
 }

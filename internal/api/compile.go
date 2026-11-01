@@ -14,8 +14,9 @@ import (
 const maxRequestBytes = 10 << 20 // 10 MB
 
 type compileRequest struct {
-	Main  string            `json:"main"`
-	Files map[string]string `json:"files"`
+	Main   string            `json:"main"`
+	Files  map[string]string `json:"files"`
+	Assets map[string]string `json:"assets"`
 }
 
 type jobResponse struct {
@@ -35,7 +36,7 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, err := h.jobs.Submit(req.Main, req.Files)
+	job, err := h.jobs.Submit(req.Main, req.Files, req.Assets)
 	switch {
 	case errors.Is(err, compile.ErrInvalidRequest):
 		writeError(w, http.StatusBadRequest, err.Error())

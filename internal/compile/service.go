@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"maps"
 	"os"
@@ -31,6 +32,10 @@ type Compiler interface {
 	Compile(ctx context.Context, srcDir, mainFile string) (*sandbox.Result, error)
 }
 
+type Blobs interface {
+	Path(hash string) (string, error)
+}
+
 type Options struct {
 	Workers   int
 	QueueSize int
@@ -42,6 +47,7 @@ type Options struct {
 
 type Service struct {
 	compiler Compiler
+	blobs    Blobs
 	opts     Options
 	queue    chan *Job
 
@@ -55,10 +61,11 @@ type Service struct {
 	cache *expirable.LRU[string, *sandbox.Result]
 }
 
-func New(c Compiler, opts Options) *Service {
+func New(c Compiler, blobs Blobs, opts Options) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Service{
 		compiler: c,
+		blobs:    blobs,
 		opts:     opts,
 		queue:    make(chan *Job, opts.QueueSize),
 		jobs:     make(map[string]*Job),
@@ -79,15 +86,15 @@ func (s *Service) Stop() {
 	s.wg.Wait()
 }
 
-func (s *Service) Submit(mainFile string, files map[string]string) (Job, error) {
+func (s *Service) Submit(mainFile string, files, assets map[string]string) (Job, error) {
 	if s.ctx.Err() != nil {
 		return Job{}, ErrStopped
 	}
-	if err := validate(mainFile, files); err != nil {
+	if err := s.validate(mainFile, files, assets); err != nil {
 		return Job{}, err
 	}
 
-	key := cacheKey(mainFile, files)
+	key := cacheKey(mainFile, files, assets)
 	if res, ok := s.cache.Get(key); ok {
 		now := time.Now()
 		return s.register(&Job{
@@ -105,6 +112,7 @@ func (s *Service) Submit(mainFile string, files map[string]string) (Job, error) 
 		CreatedAt: time.Now(),
 		mainFile:  mainFile,
 		files:     files,
+		assets:    assets,
 		cacheKey:  key,
 	}
 
@@ -160,6 +168,7 @@ func (s *Service) run(job *Job) {
 		j.Err = err
 		j.FinishedAt = time.Now()
 		j.files = nil
+		j.assets = nil
 		if err != nil {
 			j.Status = StatusFailed
 		} else {
@@ -177,6 +186,10 @@ func (s *Service) compile(job *Job) (*sandbox.Result, error) {
 	defer os.RemoveAll(srcDir)
 
 	if err := writeFiles(srcDir, job.files); err != nil {
+		return nil, err
+	}
+
+	if err := s.copyAssets(srcDir, job.assets); err != nil {
 		return nil, err
 	}
 
@@ -211,8 +224,8 @@ func (s *Service) janitor() {
 	}
 }
 
-func validate(mainFile string, files map[string]string) error {
-	if len(files) == 0 || len(files) > maxFiles {
+func (s *Service) validate(mainFile string, files, assets map[string]string) error {
+	if len(files) == 0 || len(files)+len(assets) > maxFiles {
 		return fmt.Errorf("%w: expected 1-%d files", ErrInvalidRequest, maxFiles)
 	}
 	if err := sandbox.ValidateMainFile(mainFile); err != nil {
@@ -224,6 +237,17 @@ func validate(mainFile string, files map[string]string) error {
 	for name := range files {
 		if !filepath.IsLocal(name) {
 			return fmt.Errorf("%w: invalid path %q", ErrInvalidRequest, name)
+		}
+	}
+	for name, hash := range assets {
+		if !filepath.IsLocal(name) {
+			return fmt.Errorf("%w: invalid path %q", ErrInvalidRequest, name)
+		}
+		if _, ok := files[name]; ok {
+			return fmt.Errorf("%w: %q is both a text file and an asset", ErrInvalidRequest, name)
+		}
+		if _, err := s.blobs.Path(hash); err != nil {
+			return fmt.Errorf("%w: unknown asset %q", ErrInvalidRequest, name)
 		}
 	}
 	return nil
@@ -242,14 +266,53 @@ func writeFiles(dir string, files map[string]string) error {
 	return nil
 }
 
-// cacheKey hashes the main file and every file sorted by name, so the same
-// project content always maps to the same key.
-func cacheKey(mainFile string, files map[string]string) string {
+func (s *Service) copyAssets(dir string, assets map[string]string) error {
+	for name, hash := range assets {
+		src, err := s.blobs.Path(hash)
+		if err != nil {
+			return err
+		}
+		if err := copyFile(src, filepath.Join(dir, name)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+// cacheKey hashes the main file, the text files and the asset hashes, all sorted by name.
+func cacheKey(mainFile string, files, assets map[string]string) string {
 	h := sha256.New()
 	fmt.Fprintf(h, "%d:%s", len(mainFile), mainFile)
-	for _, name := range slices.Sorted(maps.Keys(files)) {
-		content := files[name]
-		fmt.Fprintf(h, "%d:%s%d:%s", len(name), name, len(content), content)
-	}
+	writeMap(h, files)
+	writeMap(h, assets)
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func writeMap(w io.Writer, m map[string]string) {
+	fmt.Fprintf(w, "%d;", len(m))
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		v := m[k]
+		fmt.Fprintf(w, "%d:%s%d:%s", len(k), k, len(v), v)
+	}
 }

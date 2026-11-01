@@ -52,13 +52,14 @@ export function useCollab(room: string): Collab | null {
       colorLight: color + "33",
     });
 
+    const collab: Collab = { provider, files };
+
     provider.on("sync", (synced: boolean) => {
       if (!synced) return;
       if (files.size === 0) files.set(MAIN_FILE, new Y.Text(template));
       sendSnapshot(provider, ydoc);
+      setCollab(collab);
     });
-
-    setCollab({ provider, files });
 
     return () => {
       provider.destroy();
