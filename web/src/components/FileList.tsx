@@ -5,6 +5,7 @@ import { MAIN_FILE } from "../collab";
 import { uploadBlob } from "../api";
 
 type Props = {
+  project: string;
   files: Y.Map<Y.Text>;
   assets: Y.Map<string>;
   fileNames: string[];
@@ -16,6 +17,7 @@ type Props = {
 const iconButton = "rounded p-1 hover:bg-neutral-200 hover:text-neutral-800";
 
 export function FileList({
+  project,
   files,
   assets,
   fileNames,
@@ -49,7 +51,7 @@ export function FileList({
     const name = askName(file.name);
     if (!name) return;
     try {
-      assets.set(name, await uploadBlob(file));
+      assets.set(name, await uploadBlob(project, file));
       onSelect(name);
     } catch (err) {
       alert(String(err));

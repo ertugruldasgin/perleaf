@@ -41,11 +41,11 @@ export default function App() {
         ]),
       );
       const assets = Object.fromEntries(collab.assets.entries());
-      const submitted = await submit(MAIN_FILE, files, assets);
+      const submitted = await submit(room, MAIN_FILE, files, assets);
       const job =
         submitted.status === "done"
           ? submitted
-          : await waitForJob(submitted.id);
+          : await waitForJob(room, submitted.id);
 
       if (job.status === "failed") {
         setStatus(job.error ?? "failed");
@@ -55,7 +55,7 @@ export default function App() {
 
       const at = Date.now();
       lastPdfAt.current = at;
-      setPdf(await getPDF(job.id));
+      setPdf(await getPDF(room, job.id));
       collab.provider.awareness.setLocalStateField("lastCompile", {
         id: job.id,
         at,
@@ -96,7 +96,7 @@ export default function App() {
 
       const { id, at, name } = newest;
       lastPdfAt.current = at;
-      getPDF(id)
+      getPDF(room, id)
         .then((data) => {
           if (lastPdfAt.current !== at) return;
           setPdf(data);
@@ -135,6 +135,7 @@ export default function App() {
       <main className="grid min-h-0 flex-1 grid-cols-[12rem_1fr_1fr]">
         {collab ? (
           <FileList
+            project={room}
             files={collab.files}
             assets={collab.assets}
             fileNames={fileNames}
@@ -150,7 +151,7 @@ export default function App() {
           {collab && ytext ? (
             <Editor ytext={ytext} awareness={collab.provider.awareness} />
           ) : current && assetHash ? (
-            <AssetView name={current} hash={assetHash} />
+            <AssetView project={room} name={current} hash={assetHash} />
           ) : (
             <p className="p-3 text-sm text-neutral-400">Loading...</p>
           )}

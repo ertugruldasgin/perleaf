@@ -85,8 +85,15 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:              addr,
-		Handler:           api.NewRouter(jobs, hub, blobs, a, ui),
+		Addr: addr,
+		Handler: api.NewRouter(api.Deps{
+			Jobs:  jobs,
+			Hub:   hub,
+			Blobs: blobs,
+			Store: st,
+			Auth:  a,
+			UI:    ui,
+		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

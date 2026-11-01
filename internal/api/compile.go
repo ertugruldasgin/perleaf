@@ -36,7 +36,8 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, err := h.jobs.Submit(req.Main, req.Files, req.Assets)
+	job, err := h.jobs.Submit(projectFrom(r.Context()).ID, req.Main, req.Files, req.Assets)
+
 	switch {
 	case errors.Is(err, compile.ErrInvalidRequest):
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -48,7 +49,7 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		internalError(w, err)
 	default:
-		w.Header().Set("Location", "/jobs/"+job.ID)
+		w.Header().Set("Location", "/api/projects/"+job.ProjectID+"/jobs/"+job.ID)
 		status := http.StatusAccepted
 		if job.Status == compile.StatusDone {
 			status = http.StatusOK
@@ -59,7 +60,7 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) getJob(w http.ResponseWriter, r *http.Request) {
 	job, ok := h.jobs.Get(r.PathValue("id"))
-	if !ok {
+	if !ok || job.ProjectID != projectFrom(r.Context()).ID {
 		writeError(w, http.StatusNotFound, "job not found")
 		return
 	}
@@ -68,7 +69,7 @@ func (h *Handler) getJob(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) getPDF(w http.ResponseWriter, r *http.Request) {
 	job, ok := h.jobs.Get(r.PathValue("id"))
-	if !ok {
+	if !ok || job.ProjectID != projectFrom(r.Context()).ID {
 		writeError(w, http.StatusNotFound, "job not found")
 		return
 	}

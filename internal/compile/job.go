@@ -17,6 +17,7 @@ const (
 
 type Job struct {
 	ID         string
+	ProjectID  string
 	Status     Status
 	CreatedAt  time.Time
 	FinishedAt time.Time

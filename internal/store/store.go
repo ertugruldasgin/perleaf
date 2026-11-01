@@ -27,6 +27,17 @@ CREATE TABLE IF NOT EXISTS sessions (
 	user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
 	expires_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS projects (
+	id         TEXT PRIMARY KEY,
+	name       TEXT NOT NULL,
+	created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS project_members (
+	project_id TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+	user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+	role       TEXT NOT NULL CHECK (role IN ('owner', 'editor')),
+	PRIMARY KEY (project_id, user_id)
+);
 `
 
 type Store struct {

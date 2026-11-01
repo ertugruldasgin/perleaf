@@ -7,12 +7,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
-      "/compile": "http://localhost:8080",
-      "/jobs": "http://localhost:8080",
-      "/ws": { target: "ws://localhost:8080", ws: true },
-      "/blobs": "http://localhost:8080",
-      "/auth": "http://localhost:8080",
       "/api": "http://localhost:8080",
+      "/auth": "http://localhost:8080",
+      "/ws": { target: "ws://localhost:8080", ws: true },
     },
   },
 });

@@ -86,7 +86,7 @@ func (s *Service) Stop() {
 	s.wg.Wait()
 }
 
-func (s *Service) Submit(mainFile string, files, assets map[string]string) (Job, error) {
+func (s *Service) Submit(projectID, mainFile string, files, assets map[string]string) (Job, error) {
 	if s.ctx.Err() != nil {
 		return Job{}, ErrStopped
 	}
@@ -99,6 +99,7 @@ func (s *Service) Submit(mainFile string, files, assets map[string]string) (Job,
 		now := time.Now()
 		return s.register(&Job{
 			ID:         rand.Text(),
+			ProjectID:  projectID,
 			Status:     StatusDone,
 			CreatedAt:  now,
 			FinishedAt: now,
@@ -108,6 +109,7 @@ func (s *Service) Submit(mainFile string, files, assets map[string]string) (Job,
 
 	job := &Job{
 		ID:        rand.Text(),
+		ProjectID: projectID,
 		Status:    StatusQueued,
 		CreatedAt: time.Now(),
 		mainFile:  mainFile,
