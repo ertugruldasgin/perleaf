@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import * as Y from "yjs";
 import * as encoding from "lib0/encoding";
 import { WebsocketProvider } from "y-websocket";
+import type { User } from "./api";
 
 export const MAIN_FILE = "main.tex";
 
@@ -30,7 +31,7 @@ export type Collab = {
   assets: Y.Map<string>; // path -> blob hash
 };
 
-export function useCollab(room: string): Collab | null {
+export function useCollab(room: string, user: User): Collab | null {
   const [collab, setCollab] = useState<Collab | null>(null);
 
   useEffect(() => {
@@ -47,13 +48,14 @@ export function useCollab(room: string): Collab | null {
       },
     );
 
-    const color = cursorColors[Math.floor(Math.random() * cursorColors.length)];
+    const color = cursorColors[user.id % cursorColors.length];
     provider.awareness.setLocalStateField("user", {
-      name: `Anonymous ${Math.floor(Math.random() * 100)}`,
+      name: user.name,
+      login: user.login,
+      avatarUrl: user.avatarUrl,
       color,
       colorLight: color + "33",
     });
-
     const collab: Collab = { provider, files, assets };
 
     provider.on("sync", (synced: boolean) => {

@@ -23,7 +23,7 @@ type Props = {
 };
 
 export function Workspace({ project, user }: Props) {
-  const collab = useCollab(project.id);
+  const collab = useCollab(project.id, user);
   const fileNames = useKeys(collab?.files);
   const assetNames = useKeys(collab?.assets);
   const [active, setActive] = useState(MAIN_FILE);
