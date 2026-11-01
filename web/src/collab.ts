@@ -27,6 +27,7 @@ const cursorColors = [
 export type Collab = {
   provider: WebsocketProvider;
   files: Y.Map<Y.Text>; // path -> content
+  assets: Y.Map<string>; // path -> blob hash
 };
 
 export function useCollab(room: string): Collab | null {
@@ -35,6 +36,7 @@ export function useCollab(room: string): Collab | null {
   useEffect(() => {
     const ydoc = new Y.Doc();
     const files = ydoc.getMap<Y.Text>("files");
+    const assets = ydoc.getMap<string>("assets");
     const protocol = location.protocol === "https:" ? "wss" : "ws";
     const provider = new WebsocketProvider(
       `${protocol}://${location.host}/ws`,
@@ -52,7 +54,7 @@ export function useCollab(room: string): Collab | null {
       colorLight: color + "33",
     });
 
-    const collab: Collab = { provider, files };
+    const collab: Collab = { provider, files, assets };
 
     provider.on("sync", (synced: boolean) => {
       if (!synced) return;
@@ -70,18 +72,18 @@ export function useCollab(room: string): Collab | null {
   return collab;
 }
 
-export function useFileNames(files: Y.Map<Y.Text> | undefined): string[] {
-  const [names, setNames] = useState<string[]>([]);
+export function useKeys<T>(map: Y.Map<T> | undefined): string[] {
+  const [keys, setKeys] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!files) return;
-    const update = () => setNames([...files.keys()].sort());
+    if (!map) return;
+    const update = () => setKeys([...map.keys()].sort());
     update();
-    files.observe(update);
-    return () => files.unobserve(update);
-  }, [files]);
+    map.observe(update);
+    return () => map.unobserve(update);
+  }, [map]);
 
-  return names;
+  return keys;
 }
 
 function sendSnapshot(provider: WebsocketProvider, ydoc: Y.Doc) {

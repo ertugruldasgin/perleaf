@@ -2,14 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Editor } from "./components/Editor";
 import { Preview } from "./components/Preview";
 import { FileList } from "./components/FileList";
+import { AssetView } from "./components/AssetView";
 import { submit, waitForJob, getPDF, type LogError } from "./api";
-import { useCollab, useFileNames, MAIN_FILE } from "./collab";
+import { useCollab, useKeys, MAIN_FILE } from "./collab";
 
 const room = new URLSearchParams(location.search).get("project") ?? "default";
 
 export default function App() {
   const collab = useCollab(room);
-  const names = useFileNames(collab?.files);
+  const fileNames = useKeys(collab?.files);
+  const assetNames = useKeys(collab?.assets);
   const [active, setActive] = useState(MAIN_FILE);
   const [pdf, setPdf] = useState<ArrayBuffer | null>(null);
   const [status, setStatus] = useState("");
@@ -18,8 +20,12 @@ export default function App() {
   const [follow, setFollow] = useState(true);
   const lastPdfAt = useRef(0);
 
-  const current = names.includes(active) ? active : names[0];
+  const current =
+    fileNames.includes(active) || assetNames.includes(active)
+      ? active
+      : fileNames[0];
   const ytext = current ? collab?.files.get(current) : undefined;
+  const assetHash = current ? collab?.assets.get(current) : undefined;
 
   const compile = useCallback(async () => {
     if (!collab || busy) return;
@@ -34,7 +40,8 @@ export default function App() {
           text.toString(),
         ]),
       );
-      const submitted = await submit(MAIN_FILE, files);
+      const assets = Object.fromEntries(collab.assets.entries());
+      const submitted = await submit(MAIN_FILE, files, assets);
       const job =
         submitted.status === "done"
           ? submitted
@@ -129,7 +136,9 @@ export default function App() {
         {collab ? (
           <FileList
             files={collab.files}
-            names={names}
+            assets={collab.assets}
+            fileNames={fileNames}
+            assetNames={assetNames}
             active={current}
             onSelect={setActive}
           />
@@ -140,6 +149,8 @@ export default function App() {
         <div className="min-h-0 border-r border-neutral-200">
           {collab && ytext ? (
             <Editor ytext={ytext} awareness={collab.provider.awareness} />
+          ) : current && assetHash ? (
+            <AssetView name={current} hash={assetHash} />
           ) : (
             <p className="p-3 text-sm text-neutral-400">Loading...</p>
           )}
