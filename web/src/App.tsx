@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Editor } from "./components/Editor";
 import { Preview } from "./components/Preview";
 import { FileList } from "./components/FileList";
@@ -15,6 +15,8 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [errors, setErrors] = useState<LogError[]>([]);
   const [busy, setBusy] = useState(false);
+  const [follow, setFollow] = useState(true);
+  const lastPdfAt = useRef(0);
 
   const current = names.includes(active) ? active : names[0];
   const ytext = current ? collab?.files.get(current) : undefined;
@@ -44,7 +46,13 @@ export default function App() {
         return;
       }
 
+      const at = Date.now();
+      lastPdfAt.current = at;
       setPdf(await getPDF(job.id));
+      collab.provider.awareness.setLocalStateField("lastCompile", {
+        id: job.id,
+        at,
+      });
       setStatus("done");
     } catch (err) {
       setStatus(String(err));
@@ -53,7 +61,6 @@ export default function App() {
     }
   }, [collab, busy]);
 
-  // Ctrl/Cmd+S compiles
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -64,6 +71,37 @@ export default function App() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [compile]);
+
+  useEffect(() => {
+    if (!collab || !follow) return;
+    const awareness = collab.provider.awareness;
+
+    const onChange = () => {
+      let newest: { id: string; at: number; name?: string } | undefined;
+      for (const [clientID, state] of awareness.getStates()) {
+        const lc = state.lastCompile;
+        if (clientID === awareness.clientID || !lc) continue;
+        if (lc.at > (newest?.at ?? lastPdfAt.current)) {
+          newest = { id: lc.id, at: lc.at, name: state.user?.name };
+        }
+      }
+      if (!newest) return;
+
+      const { id, at, name } = newest;
+      lastPdfAt.current = at;
+      getPDF(id)
+        .then((data) => {
+          if (lastPdfAt.current !== at) return;
+          setPdf(data);
+          setStatus(`compiled by ${name ?? "someone"}`);
+        })
+        .catch(() => {});
+    };
+
+    onChange();
+    awareness.on("change", onChange);
+    return () => awareness.off("change", onChange);
+  }, [collab, follow]);
 
   return (
     <div className="flex h-screen flex-col">
@@ -77,6 +115,14 @@ export default function App() {
           Compile
         </button>
         <span className="text-neutral-500">{status}</span>
+        <label className="ml-auto flex items-center gap-1.5 text-neutral-500">
+          <input
+            type="checkbox"
+            checked={follow}
+            onChange={(e) => setFollow(e.target.checked)}
+          />
+          Follow others' compiles
+        </label>
       </header>
 
       <main className="grid min-h-0 flex-1 grid-cols-[12rem_1fr_1fr]">
