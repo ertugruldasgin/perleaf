@@ -54,6 +54,9 @@ export function Editor({ room, viewRef }: Props) {
       `${protocol}://${location.host}/ws`,
       room,
       ydoc,
+      {
+        disableBc: true,
+      },
     );
     const color = cursorColors[Math.floor(Math.random() * cursorColors.length)];
     provider.awareness.setLocalStateField("user", {

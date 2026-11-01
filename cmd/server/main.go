@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ertugruldasgin/latex-editor/internal/collab"
 	"github.com/ertugruldasgin/latex-editor/internal/compile"
 	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
+	"github.com/ertugruldasgin/latex-editor/internal/store"
 )
 
 var version = "dev"
@@ -22,6 +24,11 @@ func main() {
 	log.Printf("latex-editor %s", version)
 
 	d, err := sandbox.NewDocker(sandbox.DefaultImage)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer d.Close()
+
 	jobs := compile.New(d, compile.Options{
 		Workers:   2,
 		QueueSize: 32,
@@ -30,11 +37,21 @@ func main() {
 		CacheSize: 100,
 		CacheTTL:  30 * time.Minute,
 	})
-	hub := collab.NewHub()
+
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir == "" {
+		dataDir = "data"
+	}
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		log.Fatal(err)
+	}
+	st, err := store.Open(filepath.Join(dataDir, "latex-editor.db"))
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer d.Close()
+	defer st.Close()
+
+	hub := collab.NewHub(st)
 
 	addr := os.Getenv("ADDR")
 	if addr == "" {

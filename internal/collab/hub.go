@@ -2,11 +2,13 @@ package collab
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/ertugruldasgin/latex-editor/internal/store"
 )
 
 const (
@@ -16,6 +18,8 @@ const (
 )
 
 type Hub struct {
+	store *store.Store
+
 	mu    sync.Mutex
 	rooms map[string]map[*client]struct{}
 }
@@ -25,8 +29,8 @@ type client struct {
 	send chan []byte
 }
 
-func NewHub() *Hub {
-	return &Hub{rooms: make(map[string]map[*client]struct{})}
+func NewHub(store *store.Store) *Hub {
+	return &Hub{store: store, rooms: make(map[string]map[*client]struct{})}
 }
 
 func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
@@ -47,12 +51,17 @@ func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	go c.writeLoop(ctx)
 
+	if err := h.sendStoredState(ctx, room, c); err != nil {
+		log.Printf("collab: initial sync for %q: %v", room, err)
+		return
+	}
+
 	for {
 		_, msg, err := conn.Read(ctx)
 		if err != nil {
 			return
 		}
-		h.broadcast(room, c, msg)
+		h.handle(ctx, room, c, msg)
 	}
 }
 
@@ -105,5 +114,43 @@ func (c *client) writeLoop(ctx context.Context) {
 				return
 			}
 		}
+	}
+}
+
+func (h *Hub) sendStoredState(ctx context.Context, room string, c *client) error {
+	updates, err := h.store.Load(ctx, room)
+	if err != nil {
+		return err
+	}
+	for _, u := range updates {
+		if err := c.conn.Write(ctx, websocket.MessageBinary, syncMessage(syncUpdate, u)); err != nil {
+			return err
+		}
+	}
+	return c.conn.Write(ctx, websocket.MessageBinary, syncMessage(syncStep2, emptyUpdate))
+}
+
+func (h *Hub) handle(ctx context.Context, room string, from *client, msg []byte) {
+	msgType, rest, ok := readVarUint(msg)
+	if !ok {
+		return
+	}
+	switch msgType {
+	case msgAwareness:
+		h.broadcast(room, from, msg)
+
+	case msgSync:
+		syncType, rest, ok := readVarUint(rest)
+		if !ok || syncType != syncUpdate {
+			return
+		}
+		update, ok := readVarBytes(rest)
+		if !ok {
+			return
+		}
+		if err := h.store.Append(ctx, room, update); err != nil {
+			log.Printf("collab: store update for %q: %v", room, err)
+		}
+		h.broadcast(room, from, msg)
 	}
 }
