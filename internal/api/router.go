@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"net/http"
 
+	"github.com/ertugruldasgin/latex-editor/internal/auth"
 	"github.com/ertugruldasgin/latex-editor/internal/blob"
 	"github.com/ertugruldasgin/latex-editor/internal/collab"
 	"github.com/ertugruldasgin/latex-editor/internal/compile"
@@ -14,10 +15,14 @@ type Handler struct {
 	blobs *blob.Store
 }
 
-func NewRouter(jobs *compile.Service, hub *collab.Hub, blobs *blob.Store, ui fs.FS) http.Handler {
+func NewRouter(jobs *compile.Service, hub *collab.Hub, blobs *blob.Store, a *auth.Auth, ui fs.FS) http.Handler {
 	h := &Handler{jobs: jobs, blobs: blobs}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /auth/login", a.Login)
+	mux.HandleFunc("GET /auth/callback", a.Callback)
+	mux.HandleFunc("POST /auth/logout", a.Logout)
+	mux.Handle("GET /api/me", a.Require(http.HandlerFunc(a.Me)))
 	mux.HandleFunc("GET /healthz", h.healthz)
 	mux.HandleFunc("POST /compile", h.submit)
 	mux.HandleFunc("GET /jobs/{id}", h.getJob)

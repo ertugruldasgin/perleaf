@@ -14,6 +14,19 @@ CREATE TABLE IF NOT EXISTS doc_updates (
 	data    BLOB NOT NULL
 );
 CREATE INDEX IF NOT EXISTS doc_updates_project ON doc_updates (project, id);
+CREATE TABLE IF NOT EXISTS users (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	github_id  INTEGER NOT NULL UNIQUE,
+	login      TEXT NOT NULL,
+	name       TEXT NOT NULL,
+	avatar_url TEXT NOT NULL,
+	created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+	token_hash TEXT PRIMARY KEY,
+	user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+	expires_at INTEGER NOT NULL
+);
 `
 
 type Store struct {
@@ -21,7 +34,7 @@ type Store struct {
 }
 
 func Open(path string) (*Store, error) {
-	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)")
+	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)")
 	if err != nil {
 		return nil, err
 	}

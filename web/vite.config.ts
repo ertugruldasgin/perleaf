@@ -11,6 +11,8 @@ export default defineConfig({
       "/jobs": "http://localhost:8080",
       "/ws": { target: "ws://localhost:8080", ws: true },
       "/blobs": "http://localhost:8080",
+      "/auth": "http://localhost:8080",
+      "/api": "http://localhost:8080",
     },
   },
 });
