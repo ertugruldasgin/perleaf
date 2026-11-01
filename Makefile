@@ -1,4 +1,4 @@
-.PHONY: run run-server run-web build test check fmt clean
+.PHONY: run run-server run-web build build-web test check fmt clean
 
 ENV := set -a; [ -f .env ] && . ./.env; set +a;
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -14,8 +14,13 @@ run-server:
 run-web:
 	cd web && npm run dev
 
-build:
+# make build -> frontend into web/dist, then one binary with it embedded
+build: build-web
 	go build -ldflags "$(LDFLAGS)" -o bin/server ./cmd/server
+
+build-web:
+	cd web && npm ci && npm run build
+	touch web/dist/.gitkeep
 
 test:
 	go test ./...
@@ -31,3 +36,4 @@ fmt:
 
 clean:
 	rm -rf bin/
+	find web/dist -mindepth 1 ! -name .gitkeep -delete

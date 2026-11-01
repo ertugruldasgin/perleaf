@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/ertugruldasgin/latex-editor/internal/compile"
 	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
 	"github.com/ertugruldasgin/latex-editor/internal/store"
+	"github.com/ertugruldasgin/latex-editor/web"
 )
 
 var version = "dev"
@@ -52,7 +54,10 @@ func main() {
 	defer st.Close()
 
 	hub := collab.NewHub(st)
-
+	ui, err := fs.Sub(web.Dist, "dist")
+	if err != nil {
+		log.Fatal(err)
+	}
 	addr := os.Getenv("ADDR")
 	if addr == "" {
 		addr = ":8080"
@@ -60,7 +65,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           api.NewRouter(jobs, hub),
+		Handler:           api.NewRouter(jobs, hub, ui),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"io/fs"
 	"net/http"
 
 	"github.com/ertugruldasgin/latex-editor/internal/collab"
@@ -11,7 +12,7 @@ type Handler struct {
 	jobs *compile.Service
 }
 
-func NewRouter(jobs *compile.Service, hub *collab.Hub) http.Handler {
+func NewRouter(jobs *compile.Service, hub *collab.Hub, ui fs.FS) http.Handler {
 	h := &Handler{jobs: jobs}
 
 	mux := http.NewServeMux()
@@ -20,6 +21,7 @@ func NewRouter(jobs *compile.Service, hub *collab.Hub) http.Handler {
 	mux.HandleFunc("GET /jobs/{id}", h.getJob)
 	mux.HandleFunc("GET /jobs/{id}/pdf", h.getPDF)
 	mux.HandleFunc("GET /ws/{project}", hub.ServeWS)
+	mux.Handle("GET /", http.FileServerFS(ui))
 	return mux
 }
 
