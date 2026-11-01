@@ -44,6 +44,8 @@ func NewRouter(d Deps) http.Handler {
 
 	mux.Handle("GET /api/projects", user(h.listProjects))
 	mux.Handle("POST /api/projects", user(h.createProject))
+	mux.Handle("PATCH /api/projects/{project}", owner(h.renameProject))
+	mux.Handle("DELETE /api/projects/{project}", owner(h.deleteProject))
 	mux.Handle("GET /api/projects/{project}", member(h.getProject))
 	mux.Handle("POST /api/projects/{project}/compile", member(h.submit))
 	mux.Handle("GET /api/projects/{project}/jobs/{id}", member(h.getJob))

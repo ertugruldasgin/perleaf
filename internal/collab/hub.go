@@ -138,17 +138,25 @@ func (h *Hub) leave(room string, c *client) {
 }
 
 func (h *Hub) Kick(room string, userID int64) {
+	h.disconnect(room, "removed from project", func(c *client) bool { return c.userID == userID })
+}
+
+func (h *Hub) CloseRoom(room string) {
+	h.disconnect(room, "project deleted", func(*client) bool { return true })
+}
+
+func (h *Hub) disconnect(room, reason string, match func(*client) bool) {
 	h.mu.Lock()
 	var conns []*websocket.Conn
 	for c := range h.rooms[room] {
-		if c.userID == userID {
+		if match(c) {
 			conns = append(conns, c.conn)
 		}
 	}
 	h.mu.Unlock()
 
 	for _, conn := range conns {
-		go conn.Close(websocket.StatusPolicyViolation, "removed from project")
+		go conn.Close(websocket.StatusPolicyViolation, reason)
 	}
 }
 

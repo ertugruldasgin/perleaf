@@ -100,6 +100,28 @@ export async function createProject(name: string): Promise<Project> {
   return body;
 }
 
+export async function renameProject(
+  id: string,
+  name: string,
+): Promise<Project> {
+  const res = await fetch(`/api/projects/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  const body = await readJSON(res);
+  if (!res.ok) throw new Error(body.error ?? res.statusText);
+  return body;
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const body = await readJSON(res);
+    throw new Error(body.error ?? res.statusText);
+  }
+}
+
 export async function getProject(id: string): Promise<Project> {
   const res = await fetch(`/api/projects/${id}`);
   const body = await readJSON(res);

@@ -47,6 +47,27 @@ func (s *Store) CreateProject(ctx context.Context, name string, ownerID int64) (
 	return p, tx.Commit()
 }
 
+func (s *Store) RenameProject(ctx context.Context, id, name string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE projects SET name = ? WHERE id = ?`, name, id)
+	return err
+}
+
+func (s *Store) DeleteProject(ctx context.Context, id string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM doc_updates WHERE project = ?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM projects WHERE id = ?`, id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) ListProjects(ctx context.Context, userID int64) ([]Project, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT p.id, p.name, m.role, p.created_at

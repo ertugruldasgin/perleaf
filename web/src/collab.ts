@@ -69,7 +69,7 @@ export function useCollab(room: string, user: User): Collab | null {
       provider.destroy();
       ydoc.destroy();
     };
-  }, [room]);
+  }, [room, user]);
 
   return collab;
 }
