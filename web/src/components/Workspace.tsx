@@ -1,28 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
-import { Users } from "lucide-react";
-import { Editor } from "./Editor";
-import { Preview } from "./Preview";
-import { FileList } from "./FileList";
-import { AssetView } from "./AssetView";
-import { UserMenu } from "./UserMenu";
-import { SharePanel } from "./SharePanel";
+import { Loader2, Play, UserPlus } from "lucide-react";
 import {
+  getPDF,
   submit,
   waitForJob,
-  getPDF,
   type LogError,
   type Project,
   type User,
-} from "../api";
-import { Presence } from "./Presence";
+} from "@/api";
 import {
+  MAIN_FILE,
   useCollab,
+  useConnection,
   useKeys,
   usePeers,
-  useConnection,
-  MAIN_FILE,
-} from "../collab";
+} from "@/collab";
+import { errorMessage } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { AppHeader } from "@/components/AppHeader";
+import { AssetView } from "@/components/AssetView";
+import { CompileErrors } from "@/components/CompileErrors";
+import { Editor } from "@/components/Editor";
+import { FileList } from "@/components/FileList";
+import { Presence } from "@/components/Presence";
+import { Preview } from "@/components/Preview";
+import {
+  PreviewToolbar,
+  type CompileStatus,
+} from "@/components/PreviewToolbar";
+import { ShareDialog } from "@/components/ShareDialog";
 
 type Props = {
   project: Project;
@@ -37,12 +43,12 @@ export function Workspace({ project, user }: Props) {
   const connection = useConnection(collab?.provider);
   const [active, setActive] = useState(MAIN_FILE);
   const [pdf, setPdf] = useState<ArrayBuffer | null>(null);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<CompileStatus>({ state: "idle" });
   const [errors, setErrors] = useState<LogError[]>([]);
-  const [busy, setBusy] = useState(false);
   const [follow, setFollow] = useState(true);
   const [sharing, setSharing] = useState(false);
   const lastPdfAt = useRef(0);
+  const busy = status.state === "compiling";
 
   const current =
     fileNames.includes(active) || assetNames.includes(active)
@@ -54,8 +60,7 @@ export function Workspace({ project, user }: Props) {
   const compile = useCallback(async () => {
     if (!collab || busy) return;
 
-    setBusy(true);
-    setStatus("compiling...");
+    setStatus({ state: "compiling" });
     setErrors([]);
     try {
       const files = Object.fromEntries(
@@ -72,7 +77,7 @@ export function Workspace({ project, user }: Props) {
           : await waitForJob(project.id, submitted.id);
 
       if (job.status === "failed") {
-        setStatus(job.error ?? "failed");
+        setStatus({ state: "failed", message: job.error ?? "compile failed" });
         setErrors(job.errors ?? []);
         return;
       }
@@ -84,11 +89,9 @@ export function Workspace({ project, user }: Props) {
         id: job.id,
         at,
       });
-      setStatus("done");
+      setStatus({ state: "done" });
     } catch (err) {
-      setStatus(String(err));
-    } finally {
-      setBusy(false);
+      setStatus({ state: "failed", message: errorMessage(err) });
     }
   }, [collab, busy, project.id]);
 
@@ -124,7 +127,8 @@ export function Workspace({ project, user }: Props) {
         .then((data) => {
           if (lastPdfAt.current !== at) return;
           setPdf(data);
-          setStatus(`compiled by ${name ?? "someone"}`);
+          setErrors([]);
+          setStatus({ state: "done", by: name ?? "someone" });
         })
         .catch(() => {});
     };
@@ -135,41 +139,41 @@ export function Workspace({ project, user }: Props) {
   }, [collab, follow, project.id]);
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex items-center gap-3 border-b border-neutral-200 px-3 py-2 text-sm">
-        <Link to="/" className="font-semibold hover:text-neutral-600">
-          latex-editor
-        </Link>
-        <span className="text-neutral-300">/</span>
-        <span className="font-medium">{project.name}</span>
-        <button
-          onClick={compile}
-          disabled={busy || !collab}
-          className="rounded bg-emerald-600 px-3 py-1 font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-        >
-          Compile
-        </button>
-        <span className="text-neutral-500">{status}</span>
-        <label className="ml-auto flex items-center gap-1.5 text-neutral-500">
-          <input
-            type="checkbox"
-            checked={follow}
-            onChange={(e) => setFollow(e.target.checked)}
-          />
-          Follow others' compiles
-        </label>
+    <div className="flex h-screen flex-col bg-background">
+      <AppHeader
+        user={user}
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSharing(true)}
+              className="cursor-pointer text-muted-foreground hover:text-foreground"
+            >
+              <UserPlus />
+              Share
+            </Button>
+            <Button
+              size="sm"
+              onClick={compile}
+              disabled={busy || !collab}
+              className="cursor-pointer gap-2"
+            >
+              {busy ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <Play className="fill-current" />
+              )}
+              Compile
+            </Button>
+          </>
+        }
+      >
+        <span className="truncate font-medium">{project.name}</span>
         <Presence peers={peers} status={connection} />
-        <button
-          onClick={() => setSharing(true)}
-          className="flex items-center gap-1.5 rounded px-2 py-1 text-neutral-600 hover:bg-neutral-100"
-        >
-          <Users size={16} />
-          Share
-        </button>
-        <UserMenu user={user} />
-      </header>
+      </AppHeader>
 
-      <main className="grid min-h-0 flex-1 grid-cols-[12rem_1fr_1fr]">
+      <main className="grid min-h-0 flex-1 grid-cols-[13rem_1fr_1fr]">
         {collab ? (
           <FileList
             project={project.id}
@@ -181,42 +185,38 @@ export function Workspace({ project, user }: Props) {
             onSelect={setActive}
           />
         ) : (
-          <aside className="border-r border-neutral-200 bg-neutral-50" />
+          <aside className="border-r bg-muted/30" />
         )}
 
-        <div className="min-h-0 border-r border-neutral-200">
+        <div className="min-h-0 border-r">
           {collab && ytext ? (
             <Editor ytext={ytext} awareness={collab.provider.awareness} />
           ) : current && assetHash ? (
             <AssetView project={project.id} name={current} hash={assetHash} />
           ) : (
-            <p className="p-3 text-sm text-neutral-400">Loading...</p>
+            <p className="p-3 text-sm text-muted-foreground">Loading...</p>
           )}
         </div>
 
-        <div className="min-h-0">
-          <Preview pdf={pdf} />
-        </div>
+        <section className="flex min-h-0 flex-col">
+          <PreviewToolbar
+            status={status}
+            follow={follow}
+            onFollowChange={setFollow}
+          />
+          <div className="min-h-0 flex-1">
+            <Preview pdf={pdf} />
+          </div>
+          {errors.length > 0 && <CompileErrors errors={errors} />}
+        </section>
       </main>
 
-      {errors.length > 0 && (
-        <ul className="max-h-40 overflow-auto bg-red-50 px-3 py-2 font-mono text-sm text-red-700">
-          {errors.map((e, i) => (
-            <li key={i}>
-              {e.file ? `${e.file}:${e.line}: ` : ""}
-              {e.message}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {sharing && (
-        <SharePanel
-          project={project}
-          user={user}
-          onClose={() => setSharing(false)}
-        />
-      )}
+      <ShareDialog
+        open={sharing}
+        onClose={() => setSharing(false)}
+        project={project}
+        user={user}
+      />
     </div>
   );
 }
