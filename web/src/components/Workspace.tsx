@@ -173,7 +173,7 @@ export function Workspace({ project, user }: Props) {
         <Presence peers={peers} status={connection} />
       </AppHeader>
 
-      <main className="grid min-h-0 flex-1 grid-cols-[13rem_1fr_1fr]">
+      <main className="grid min-h-0 flex-1 grid-cols-[13rem_minmax(0,1fr)_minmax(0,1fr)]">
         {collab ? (
           <FileList
             project={project.id}
@@ -198,7 +198,7 @@ export function Workspace({ project, user }: Props) {
           )}
         </div>
 
-        <section className="flex min-h-0 flex-col">
+        <section className="flex min-h-0 min-w-0 flex-col">
           <PreviewToolbar
             status={status}
             follow={follow}

@@ -19,6 +19,7 @@ export async function renderPages(
     const canvas = document.createElement("canvas");
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
+    canvas.style.width = `${cssWidth}px`;
     await page.render({ canvas, viewport }).promise;
     canvases.push(canvas);
   }

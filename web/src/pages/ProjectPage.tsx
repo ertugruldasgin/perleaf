@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { getProject, type Project, type User } from "../api";
-import { Workspace } from "../components/Workspace";
+import { Workspace } from "@/components/Workspace";
 
 export function ProjectPage({ user }: { user: User }) {
   const { id = "" } = useParams();
