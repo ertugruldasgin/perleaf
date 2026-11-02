@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -80,7 +79,6 @@ function ShareContent({ project, user }: { project: Project; user: User }) {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  // first click arms the button, second click removes
   const onRemoveClick = async (m: Member) => {
     if (confirming !== m.id) {
       setConfirming(m.id);

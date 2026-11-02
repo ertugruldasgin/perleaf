@@ -8,7 +8,7 @@ import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
 import type * as Y from "yjs";
 import type { WebsocketProvider } from "y-websocket";
 import { yCollab, yUndoManagerKeymap } from "y-codemirror.next";
-import { useTheme, type Theme } from "@/components/ThemeProvider";
+import { useTheme, type Theme } from "@/lib/theme";
 
 const subtle = "color-mix(in oklab, var(--foreground) 4%, transparent)";
 
