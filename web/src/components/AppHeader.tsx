@@ -5,6 +5,7 @@ import type { User } from "@/api";
 import { APP_NAME } from "@/lib/config";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
+import { Logo } from "./Logo";
 
 type Props = {
   user: User;
@@ -15,8 +16,14 @@ type Props = {
 export function AppHeader({ user, children, actions }: Props) {
   return (
     <header className="sticky top-0 z-20 flex h-12 shrink-0 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur">
-      <Link to="/" className="flex items-center font-semibold">
-        <span className="hidden sm:inline">{APP_NAME}</span>
+      <Link
+        to="/"
+        className="flex gap-1 items-center justify-center font-semibold"
+      >
+        <Logo />
+        <span className="font-brand text-lg font-semibold tracking-[-0.02em]">
+          {APP_NAME}
+        </span>
       </Link>
 
       {children && (
