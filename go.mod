@@ -1,4 +1,4 @@
-module github.com/ertugruldasgin/latex-editor
+module github.com/ertugruldasgin/perleaf
 
 go 1.27.1
 

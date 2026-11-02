@@ -3,7 +3,7 @@ package compile
 import (
 	"time"
 
-	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
+	"github.com/ertugruldasgin/perleaf/internal/sandbox"
 )
 
 type Status string

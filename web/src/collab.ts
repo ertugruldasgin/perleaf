@@ -10,7 +10,7 @@ const SNAPSHOT_MESSAGE = 100; // must match msgSnapshot in internal/collab/proto
 
 const template = String.raw`\documentclass{article}
 \begin{document}
-Hello from latex-editor!
+Hello perleaf!
 \end{document}
 `;
 

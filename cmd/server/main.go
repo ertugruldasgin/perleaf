@@ -13,20 +13,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ertugruldasgin/latex-editor/internal/api"
-	"github.com/ertugruldasgin/latex-editor/internal/auth"
-	"github.com/ertugruldasgin/latex-editor/internal/blob"
-	"github.com/ertugruldasgin/latex-editor/internal/collab"
-	"github.com/ertugruldasgin/latex-editor/internal/compile"
-	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
-	"github.com/ertugruldasgin/latex-editor/internal/store"
-	"github.com/ertugruldasgin/latex-editor/web"
+	"github.com/ertugruldasgin/perleaf/internal/api"
+	"github.com/ertugruldasgin/perleaf/internal/auth"
+	"github.com/ertugruldasgin/perleaf/internal/blob"
+	"github.com/ertugruldasgin/perleaf/internal/collab"
+	"github.com/ertugruldasgin/perleaf/internal/compile"
+	"github.com/ertugruldasgin/perleaf/internal/sandbox"
+	"github.com/ertugruldasgin/perleaf/internal/store"
+	"github.com/ertugruldasgin/perleaf/web"
 )
 
 var version = "dev"
 
 func main() {
-	log.Printf("latex-editor %s", version)
+	log.Printf("perleaf %s", version)
 
 	d, err := sandbox.NewDocker(sandbox.DefaultImage)
 	if err != nil {
@@ -42,7 +42,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	st, err := store.Open(filepath.Join(dataDir, "latex-editor.db"))
+	st, err := store.Open(filepath.Join(dataDir, "perleaf.db"))
 	if err != nil {
 		log.Fatal(err)
 	}

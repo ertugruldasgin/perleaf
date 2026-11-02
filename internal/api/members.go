@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ertugruldasgin/latex-editor/internal/auth"
-	"github.com/ertugruldasgin/latex-editor/internal/store"
+	"github.com/ertugruldasgin/perleaf/internal/auth"
+	"github.com/ertugruldasgin/perleaf/internal/store"
 )
 
 const inviteTTL = 7 * 24 * time.Hour

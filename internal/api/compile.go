@@ -7,8 +7,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/ertugruldasgin/latex-editor/internal/compile"
-	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
+	"github.com/ertugruldasgin/perleaf/internal/compile"
+	"github.com/ertugruldasgin/perleaf/internal/sandbox"
 )
 
 const maxRequestBytes = 10 << 20 // 10 MB

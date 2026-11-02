@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ertugruldasgin/latex-editor/internal/sandbox"
+	"github.com/ertugruldasgin/perleaf/internal/sandbox"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 )
 

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/ertugruldasgin/latex-editor/internal/auth"
-	"github.com/ertugruldasgin/latex-editor/internal/store"
+	"github.com/ertugruldasgin/perleaf/internal/auth"
+	"github.com/ertugruldasgin/perleaf/internal/store"
 )
 
 type projectKey struct{}

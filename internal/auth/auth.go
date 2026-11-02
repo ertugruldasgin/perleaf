@@ -18,7 +18,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 
-	"github.com/ertugruldasgin/latex-editor/internal/store"
+	"github.com/ertugruldasgin/perleaf/internal/store"
 )
 
 const (
